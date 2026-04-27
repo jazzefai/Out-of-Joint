@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ink: #0a0a0f;
+    --paper: #f0ede8;
+    --accent: #e8401c;
+    --muted: #6b6b7b;
+    --grid: #1e1e2e;
+    --stat-e: #3b82f6;
+    --stat-c: #22c55e;
+    --stat-a: #f59e0b;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Remove tap highlight on mobile */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    overscroll-behavior: none;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 2px;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-accent text-white font-display text-sm uppercase tracking-widest px-6 py-3 rounded-none
+           border-2 border-accent hover:bg-transparent hover:text-accent
+           transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent text-paper font-display text-sm uppercase tracking-widest px-6 py-3 rounded-none
+           border-2 border-paper/30 hover:border-paper/70
+           transition-all duration-150 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-muted font-display text-xs uppercase tracking-widest px-4 py-2
+           border border-white/10 hover:border-white/30 hover:text-paper
+           transition-all duration-150 active:scale-95;
+  }
+
+  .stat-pill {
+    @apply flex items-center gap-1.5 px-3 py-1.5 border text-xs font-display uppercase tracking-wider;
+  }
+
+  .card-dark {
+    @apply bg-grid border border-white/10 p-4;
+  }
+
+  .section-label {
+    @apply text-xs font-display uppercase tracking-[0.2em] text-muted;
+  }
+
+  .round-badge {
+    @apply inline-flex items-center justify-center w-8 h-8 bg-accent text-white
+           font-display text-sm font-bold;
+  }
+}
+
+@layer utilities {
+  .stat-bar-track {
+    @apply h-2 bg-white/10 overflow-hidden rounded-none;
+  }
+
+  .font-mono-feature {
+    font-feature-settings: "tnum";
+  }
+}
+
+/* Countdown animation */
+@keyframes countdown-shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.countdown-bar {
+  animation: countdown-shrink linear forwards;
+}
+
+/* Vote option pulse when selected */
+@keyframes vote-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(232, 64, 28, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(232, 64, 28, 0);
+  }
+}
+
+.vote-selected {
+  animation: vote-pulse 1.5s ease-in-out infinite;
+}
