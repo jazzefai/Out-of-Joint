@@ -17,12 +17,9 @@ export async function createRoom(
   const client = db();
 
   // Generate room code via DB function
-  const { data: codeData, error: codeError } = await client.rpc(
-    "generate_room_code"
-  );
-  if (codeError) return { error: codeError.message };
-
-  const code: string = codeData;
+const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
   const hostSecret = crypto.randomUUID();
 
   const { data: room, error: roomError } = await client
