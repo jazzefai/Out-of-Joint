@@ -182,4 +182,4 @@ npm run type-check
 
 ## License
 
-MIT — see LICENSE.
+MIT — see LICENSE. 
