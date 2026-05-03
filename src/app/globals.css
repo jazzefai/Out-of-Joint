@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ink: #0D0D0D;
+    --paper: #F0F0F0;
+    --accent: #E8401C;
+    --muted: #555555;
+    --grid: #1A1A1A;
+    --border: #2A2A2A;
+    --stat-e: #3b82f6;
+    --stat-c: #22c55e;
+    --stat-a: #f59e0b;
+    --glow-accent: rgba(232, 64, 28, 0.35);
+    --glow-green: rgba(34, 197, 94, 0.35);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    overscroll-behavior: none;
+    font-feature-settings: "kern";
+  }
+
+  /* Tabular numbers everywhere they appear */
+  .font-display,
+  [class*="font-mono"] {
+    font-feature-settings: "tnum";
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2A2A2A;
+    border-radius: 2px;
+  }
+}
+
+@layer components {
+  /* Primary action — solid accent fill */
+  .btn-primary {
+    @apply bg-accent text-white font-display text-sm uppercase tracking-widest px-6 py-3
+           border-2 border-accent
+           hover:bg-transparent hover:text-accent
+           transition-all duration-150 active:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Secondary — accent border, no fill */
+  .btn-secondary {
+    @apply bg-transparent text-paper font-display text-sm uppercase tracking-widest px-6 py-3
+           border-2 border-[#2A2A2A] hover:border-accent hover:text-accent
+           transition-all duration-150 active:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-muted font-display text-xs uppercase tracking-widest px-4 py-2
+           border border-[#2A2A2A] hover:border-accent/50 hover:text-paper
+           transition-all duration-150 active:scale-[1.02];
+  }
+
+  .stat-pill {
+    @apply flex items-center gap-1.5 px-3 py-1.5 border text-xs font-display uppercase tracking-wider;
+  }
+
+  /* Surface card — neutral dark, no purple tint */
+  .card-dark {
+    @apply bg-[#1A1A1A] border border-[#2A2A2A] p-4;
+  }
+
+  .section-label {
+    @apply text-xs font-display uppercase tracking-[0.2em] text-muted;
+  }
+
+  .round-badge {
+    @apply inline-flex items-center justify-center w-8 h-8 bg-accent text-white
+           font-display text-sm font-bold;
+  }
+
+  /* Live broadcast dot */
+  .live-dot {
+    @apply inline-block w-2 h-2 rounded-full bg-accent;
+    animation: live-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@layer utilities {
+  .stat-bar-track {
+    @apply h-2 bg-[#2A2A2A] overflow-hidden;
+  }
+
+  .font-mono-feature {
+    font-feature-settings: "tnum";
+  }
+
+  /* Glow on selected vote option */
+  .vote-glow {
+    box-shadow: 0 0 0 2px var(--accent), 0 0 16px var(--glow-accent);
+  }
+
+  /* Green glow when all votes in */
+  .all-in-glow {
+    box-shadow: 0 0 16px var(--glow-green);
+  }
+}
+
+/* Live dot pulse */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Countdown bar */
+@keyframes countdown-shrink {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+.countdown-bar {
+  animation: countdown-shrink linear forwards;
+}
+
+/* Vote option selected — glow ring */
+@keyframes vote-glow-ring {
+  0%, 100% { box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--glow-accent); }
+  50%      { box-shadow: 0 0 0 2px var(--accent), 0 0 24px var(--glow-accent); }
+}
+
+.vote-selected {
+  animation: vote-glow-ring 1.6s ease-in-out infinite;
+}
+
+/* Participation meter — flash green on all-in */
+@keyframes flash-green {
+  0%   { background-color: #22c55e; }
+  60%  { background-color: #22c55e; }
+  100% { background-color: #1A1A1A; }
+}
+
+.all-in-flash {
+  animation: flash-green 0.8s ease-out forwards;
+}
+
+/* Number tick — brief scale when value changes */
+@keyframes tick-up {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.tick {
+  animation: tick-up 0.2s ease-out forwards;
+}
