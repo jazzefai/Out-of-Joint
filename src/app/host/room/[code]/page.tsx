@@ -29,6 +29,7 @@ export default function HostRoomPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
+  const [allVotes, setAllVotes] = useState<Vote[]>([]);
   const [hostSecret, setHostSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -107,13 +108,20 @@ export default function HostRoomPage() {
     return () => { supabase.removeChannel(roomSub); };
   }, [room?.id, room?.current_round]);
 
-  // Fetch votes when round changes
+  // Fetch votes for current round
   useEffect(() => {
     if (!room || room.current_round === 0) { setVotes([]); return; }
     supabase.from("votes").select("*")
       .eq("room_id", room.id).eq("round", room.current_round)
       .then(({ data }) => { if (data) setVotes(data as Vote[]); });
   }, [room?.id, room?.current_round]);
+
+  // Fetch ALL votes when game ends (for stats)
+  useEffect(() => {
+    if (!room || (room.phase !== "finished" && room.phase !== "collapsed")) return;
+    supabase.from("votes").select("*").eq("room_id", room.id)
+      .then(({ data }) => { if (data) setAllVotes(data as Vote[]); });
+  }, [room?.id, room?.phase]);
 
   const doAction = useCallback(
     async (fn: () => Promise<{ error?: string; winner?: "A" | "B" | "C"; wasTie?: boolean }>) => {
@@ -252,6 +260,15 @@ export default function HostRoomPage() {
         {/* ============ FINISHED ============ */}
         {room.phase === "finished" && (
           <FinishedPanel teams={teams} />
+        )}
+
+        {/* ============ SESSION STATS ============ */}
+        {(room.phase === "finished" || room.phase === "collapsed") && (
+          <SessionStatsPanel
+            allVotes={allVotes}
+            players={players}
+            room={room}
+          />
         )}
 
         {/* Stats always visible during play */}
@@ -580,6 +597,91 @@ function CollapsedPanel({ teams }: { teams: Team[] }) {
           Reveal the meltdown ending card from the physical deck. Read it aloud to the table.
         </p>
       </div>
+    </div>
+  );
+}
+
+function SessionStatsPanel({
+  allVotes,
+  players,
+  room,
+}: {
+  allVotes: Vote[];
+  players: Player[];
+  room: Room;
+}) {
+  const totalPlayers = players.length;
+  const rounds = [1, 2, 3, 4];
+  const roundsPlayed = room.current_round;
+
+  const stats = rounds.map((r) => {
+    const roundVotes = allVotes.filter((v) => v.round === r);
+    const pct = totalPlayers > 0 ? Math.round((roundVotes.length / totalPlayers) * 100) : 0;
+    return { round: r, votes: roundVotes.length, pct, played: r <= roundsPlayed };
+  });
+
+  const avgParticipation = stats.filter((s) => s.played && totalPlayers > 0).reduce((sum, s) => sum + s.pct, 0) / Math.max(1, stats.filter((s) => s.played).length);
+  const completed = room.phase === "finished";
+
+  return (
+    <div className="space-y-4 border-t border-[#2A2A2A] pt-6 mt-2">
+      <p className="section-label">Session Metrics</p>
+
+      {/* Metric 1: Avg participation */}
+      <div className="card-dark space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-paper font-body">Vote participation</span>
+          <span
+            className={`font-display text-xl tabular-nums ${
+              avgParticipation >= 80 ? "text-green-400" : avgParticipation >= 50 ? "text-yellow-400" : "text-red-400"
+            }`}
+          >
+            {Math.round(avgParticipation)}%
+          </span>
+        </div>
+        <p className="text-xs text-muted">Average across rounds played · Target: 80%+</p>
+
+        {/* Per-round breakdown */}
+        <div className="space-y-2 pt-1">
+          {stats.filter((s) => s.played).map((s) => (
+            <div key={s.round} className="flex items-center gap-3">
+              <span className="font-display text-xs text-muted w-5">R{s.round}</span>
+              <div className="flex-1 stat-bar-track h-1.5">
+                <div
+                  className={`h-full transition-all duration-700 ${s.pct >= 80 ? "bg-green-500" : s.pct >= 50 ? "bg-yellow-500" : "bg-accent"}`}
+                  style={{ width: `${s.pct}%` }}
+                />
+              </div>
+              <span className="font-display text-xs tabular-nums text-muted w-16 text-right">
+                {s.votes}/{totalPlayers} · {s.pct}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Metric 2: Session completion */}
+      <div className="card-dark flex items-center justify-between">
+        <div>
+          <p className="text-sm text-paper font-body">Session outcome</p>
+          <p className="text-xs text-muted mt-0.5">
+            {completed
+              ? `All 4 rounds completed`
+              : `Ended at round ${roundsPlayed} — city collapsed`}
+          </p>
+        </div>
+        <span
+          className={`font-display text-xs uppercase tracking-wider px-3 py-1.5 border ${
+            completed
+              ? "border-green-500/40 text-green-400"
+              : "border-red-500/40 text-red-400"
+          }`}
+        >
+          {completed ? "Complete" : "Collapsed"}
+        </span>
+      </div>
+
+      <p className="text-xs text-muted text-center">{totalPlayers} players · {allVotes.length} total votes cast</p>
     </div>
   );
 }
