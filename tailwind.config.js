@@ -10,6 +10,7 @@ module.exports = {
       fontFamily: {
         display: ["'Space Mono'", "monospace"],
         body: ["'Inter'", "sans-serif"],
+        serif: ["'Libre Baskerville'", "Georgia", "serif"],
       },
       colors: {
         ink: "#0D0D0D",

@@ -74,9 +74,14 @@
     @apply flex items-center gap-1.5 px-3 py-1.5 border text-xs font-display uppercase tracking-wider;
   }
 
-  /* Surface card — neutral dark, no purple tint */
+  /* Surface card — neutral dark, increased padding */
   .card-dark {
-    @apply bg-[#1A1A1A] border border-[#2A2A2A] p-4;
+    @apply bg-[#1A1A1A] border border-[#2A2A2A] p-6;
+  }
+
+  /* Serif title — Baskerville for disruption/round titles */
+  .title-serif {
+    @apply font-serif font-bold tracking-tight leading-tight;
   }
 
   .section-label {

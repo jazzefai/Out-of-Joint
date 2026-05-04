@@ -250,7 +250,7 @@ export default function PlayerRoomPage() {
               <div className="space-y-4">
                 <div>
                   <p className="section-label mb-1">Round {room.current_round}</p>
-                  <h2 className="font-display text-2xl text-paper">{card.title}</h2>
+                  <h2 className="title-serif text-2xl text-paper">{card.title}</h2>
                 </div>
                 <div className="card-dark">
                   <DeltaBadge delta={card.baseEffect} label="Base effect applied" />
@@ -323,7 +323,7 @@ export default function PlayerRoomPage() {
         {/* ============ COLLAPSED ============ */}
         {room.phase === "collapsed" && (
           <div className="text-center space-y-4 py-8">
-            <p className="font-display text-3xl text-red-400">City Collapsed</p>
+            <p className="title-serif text-3xl text-red-400">City Collapsed</p>
             <p className="text-sm text-muted">Listen to the host reveal the meltdown ending.</p>
           </div>
         )}
@@ -423,7 +423,7 @@ function VotingPanel({
     <div className="space-y-5">
       <div>
         <p className="section-label mb-1">Round {room.current_round} — Vote Now</p>
-        <h2 className="font-display text-xl text-paper">{card.title}</h2>
+        <h2 className="title-serif text-xl text-paper">{card.title}</h2>
       </div>
 
       {room.voting_ends_at && (
@@ -509,7 +509,7 @@ function FinishedPanel({
     <div className="space-y-5 py-4">
       <div className="text-center">
         <p className="section-label mb-1">Game Over</p>
-        <h2 className="font-display text-2xl text-paper">Final Standings</h2>
+        <h2 className="title-serif text-2xl text-paper">Final Standings</h2>
       </div>
 
       <div className="space-y-2">

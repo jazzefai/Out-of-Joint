@@ -389,11 +389,11 @@ function RoundPanel({
   return (
     <div className="space-y-5">
       {/* Card header */}
-      <div className="flex items-start gap-3">
-        <span className="round-badge">{room.current_round}</span>
+      <div className="flex items-start gap-4">
+        <span className="round-badge mt-1">{room.current_round}</span>
         <div>
-          <h2 className="font-display text-xl text-paper">{card.title}</h2>
-          <p className="text-xs text-muted mt-0.5">Round {room.current_round} of 4</p>
+          <h2 className="title-serif text-2xl text-paper">{card.title}</h2>
+          <p className="font-display text-xs text-muted mt-1.5 tracking-widest uppercase">Round {room.current_round} of 4</p>
         </div>
       </div>
 
@@ -565,7 +565,7 @@ function CollapsedPanel({ teams }: { teams: Team[] }) {
   return (
     <div className="space-y-6 text-center py-8">
       <div className="inline-block border border-red-500 px-6 py-3">
-        <p className="font-display text-2xl text-red-400 uppercase tracking-widest">
+        <p className="title-serif text-2xl text-red-400">
           City Collapsed
         </p>
       </div>
@@ -592,7 +592,7 @@ function FinishedPanel({ teams }: { teams: Team[] }) {
     <div className="space-y-6 py-6">
       <div className="text-center">
         <p className="section-label mb-2">Game Over</p>
-        <h2 className="font-display text-3xl text-paper">Final Standings</h2>
+        <h2 className="title-serif text-3xl text-paper">Final Standings</h2>
       </div>
       <div className="space-y-2">
         {sorted.map((t, i) => {
