@@ -1,4 +1,4 @@
-import type { RoundCard, StatDelta, VoteTally, RoundResult } from "@/types";
+import type { RoundCard, StatDelta, VoteTally, WeightedVoteTally, RoundResult } from "@/types";
 
 // ============================================================
 // Hardcoded deck — Out of Joint Classic (No Cross-Table)
@@ -101,6 +101,59 @@ export function resolveRound(tally: VoteTally): RoundResult {
   // Tie-break: coin flip among leaders
   const winner = leaders[Math.floor(Math.random() * leaders.length)];
   return { winner, tally, wasTie: true };
+}
+
+// ============================================================
+// Velocity-Weighted Voting
+// Weight formula: max(0.5, 1.0 - (elapsed / duration) * 0.5)
+// Early votes count up to 1.0×, late votes floor at 0.5×
+// ============================================================
+
+export function computeVoteWeight(
+  elapsedSeconds: number,
+  durationSeconds: number = 60
+): number {
+  const clamped = Math.max(0, Math.min(elapsedSeconds, durationSeconds));
+  return Math.max(0.5, 1.0 - (clamped / durationSeconds) * 0.5);
+}
+
+export function weightedTallyVotes(
+  votes: { choice: "A" | "B" | "C"; created_at: string }[],
+  votingOpenedAt: string,
+  durationSeconds: number = 60
+): WeightedVoteTally {
+  const openedMs = new Date(votingOpenedAt).getTime();
+  let wA = 0, wB = 0, wC = 0;
+  const tally: VoteTally = { A: 0, B: 0, C: 0, total: votes.length };
+
+  for (const v of votes) {
+    tally[v.choice]++;
+    const elapsed = (new Date(v.created_at).getTime() - openedMs) / 1000;
+    const weight = computeVoteWeight(elapsed, durationSeconds);
+    if (v.choice === "A") wA += weight;
+    else if (v.choice === "B") wB += weight;
+    else wC += weight;
+  }
+
+  return {
+    ...tally,
+    weightedA: Math.round(wA * 100) / 100,
+    weightedB: Math.round(wB * 100) / 100,
+    weightedC: Math.round(wC * 100) / 100,
+  };
+}
+
+export function resolveWeightedRound(wtally: WeightedVoteTally): RoundResult {
+  const scores = { A: wtally.weightedA, B: wtally.weightedB, C: wtally.weightedC };
+  const max = Math.max(scores.A, scores.B, scores.C);
+  const leaders = (["A", "B", "C"] as const).filter((k) => scores[k] === max);
+
+  if (leaders.length === 1) {
+    return { winner: leaders[0], tally: wtally, wasTie: false };
+  }
+
+  const winner = leaders[Math.floor(Math.random() * leaders.length)];
+  return { winner, tally: wtally, wasTie: true };
 }
 
 // ============================================================

@@ -21,6 +21,7 @@ export interface Room {
   current_round: number; // 0 = lobby
   phase: RoundPhase;
   voting_ends_at: string | null;
+  voting_opened_at: string | null;
   host_secret: string;
   created_at: string;
   updated_at: string;
@@ -83,6 +84,12 @@ export interface VoteTally {
   B: number;
   C: number;
   total: number;
+}
+
+export interface WeightedVoteTally extends VoteTally {
+  weightedA: number;
+  weightedB: number;
+  weightedC: number;
 }
 
 export interface RoundResult {

@@ -1,7 +1,14 @@
 "use server";
 
 import { createServiceClient } from "@/lib/supabase";
-import { applyDelta, getCard, resolveRound, tallyVotes } from "@/lib/classicDeck";
+import {
+  applyDelta,
+  getCard,
+  resolveRound,
+  tallyVotes,
+  weightedTallyVotes,
+  resolveWeightedRound,
+} from "@/lib/classicDeck";
 import type { PlayMode, RoundPhase, StatDelta } from "@/types";
 
 const db = () => createServiceClient();
@@ -153,12 +160,16 @@ export async function openVoting(
 ): Promise<{ error?: string }> {
   try {
     const roomId = await assertHost(code, hostSecret);
-    const votingEndsAt = new Date(
-      Date.now() + durationSeconds * 1000
-    ).toISOString();
+    const now = new Date();
+    const votingOpenedAt = now.toISOString();
+    const votingEndsAt = new Date(now.getTime() + durationSeconds * 1000).toISOString();
     await db()
       .from("rooms")
-      .update({ phase: "voting_open", voting_ends_at: votingEndsAt })
+      .update({
+        phase: "voting_open",
+        voting_opened_at: votingOpenedAt,
+        voting_ends_at: votingEndsAt,
+      })
       .eq("id", roomId);
     return {};
   } catch (e: unknown) {
@@ -198,7 +209,7 @@ export async function applyNetEffect(
 
     const { data: room } = await client
       .from("rooms")
-      .select("current_round, mode")
+      .select("current_round, mode, voting_opened_at")
       .eq("id", roomId)
       .single();
 
@@ -216,16 +227,26 @@ export async function applyNetEffect(
     let globalWinner: "A" | "B" | "C" = "A";
     let globalWasTie = false;
 
+    const votingOpenedAt: string | null = room.voting_opened_at ?? null;
+
+    // Helper: resolve using weighted tally when voting_opened_at is available
+    const resolveVotes = (rawVotes: { choice: "A" | "B" | "C"; created_at: string }[]) => {
+      if (votingOpenedAt) {
+        const wtally = weightedTallyVotes(rawVotes, votingOpenedAt);
+        return resolveWeightedRound(wtally);
+      }
+      return resolveRound(tallyVotes(rawVotes));
+    };
+
     if (room.mode === "whole_room") {
       // All votes across room
       const { data: votes } = await client
         .from("votes")
-        .select("choice")
+        .select("choice, created_at")
         .eq("room_id", roomId)
         .eq("round", room.current_round);
 
-      const tally = tallyVotes(votes ?? []);
-      const result = resolveRound(tally);
+      const result = resolveVotes(votes ?? []);
       globalWinner = result.winner;
       globalWasTie = result.wasTie;
 
@@ -247,12 +268,11 @@ export async function applyNetEffect(
       for (const team of teams) {
         const { data: votes } = await client
           .from("votes")
-          .select("choice")
+          .select("choice, created_at")
           .eq("team_id", team.id)
           .eq("round", room.current_round);
 
-        const tally = tallyVotes(votes ?? []);
-        const result = resolveRound(tally);
+        const result = resolveVotes(votes ?? []);
         globalWinner = result.winner;
         globalWasTie = result.wasTie;
 

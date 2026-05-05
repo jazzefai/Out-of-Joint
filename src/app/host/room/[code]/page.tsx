@@ -14,7 +14,8 @@ import {
   endGame,
   startRound,
 } from "@/lib/actions";
-import { getCard, resolveRound, tallyVotes } from "@/lib/classicDeck";
+import { getCard, resolveRound, tallyVotes, weightedTallyVotes, resolveWeightedRound } from "@/lib/classicDeck";
+import type { WeightedVoteTally } from "@/types";
 import { CityStatsCard } from "@/components/shared/StatBar";
 import { ParticipationMeter } from "@/components/shared/ParticipationMeter";
 import { CountdownTimer } from "@/components/shared/CountdownTimer";
@@ -179,9 +180,25 @@ export default function HostRoomPage() {
     return tallyVotes(tv);
   }
 
+  function teamWeightedVoteTally(teamId: string): WeightedVoteTally | null {
+    if (!room || !room.voting_opened_at) return null;
+    const votingOpenedAt = room.voting_opened_at;
+    const tv = roundVotes.filter((v) => v.team_id === teamId);
+    return weightedTallyVotes(tv, votingOpenedAt);
+  }
+
   // Global tally (whole_room mode)
   const globalTally = tallyVotes(roundVotes);
   const globalResult = roundVotes.length > 0 ? resolveRound(globalTally) : null;
+
+  // Weighted global tally
+  const globalWeightedTally =
+    room.voting_opened_at && roundVotes.length > 0
+      ? weightedTallyVotes(roundVotes, room.voting_opened_at)
+      : null;
+  const globalWeightedResult = globalWeightedTally
+    ? resolveWeightedRound(globalWeightedTally)
+    : null;
 
   return (
     <main className="min-h-screen bg-ink">
@@ -232,7 +249,10 @@ export default function HostRoomPage() {
             totalPlayers={totalPlayers}
             globalTally={globalTally}
             globalResult={globalResult}
+            globalWeightedTally={globalWeightedTally}
+            globalWeightedResult={globalWeightedResult}
             teamVoteTally={teamVoteTally}
+            teamWeightedVoteTally={teamWeightedVoteTally}
             lastResult={lastResult}
             actionLoading={actionLoading}
             onApplyBase={() => doAction(() => applyBaseEffect(code, hostSecret!))}
@@ -372,7 +392,10 @@ function RoundPanel({
   totalPlayers,
   globalTally,
   globalResult,
+  globalWeightedTally,
+  globalWeightedResult,
   teamVoteTally,
+  teamWeightedVoteTally,
   lastResult,
   actionLoading,
   onApplyBase,
@@ -391,7 +414,10 @@ function RoundPanel({
   totalPlayers: number;
   globalTally: ReturnType<typeof tallyVotes>;
   globalResult: ReturnType<typeof resolveRound> | null;
+  globalWeightedTally: WeightedVoteTally | null;
+  globalWeightedResult: ReturnType<typeof resolveWeightedRound> | null;
   teamVoteTally: (teamId: string) => ReturnType<typeof tallyVotes>;
+  teamWeightedVoteTally: (teamId: string) => WeightedVoteTally | null;
   lastResult: { winner: "A" | "B" | "C"; wasTie: boolean } | null;
   actionLoading: boolean;
   onApplyBase: () => void;
@@ -450,6 +476,9 @@ function RoundPanel({
           {room.voting_ends_at && (
             <div className="card-dark">
               <CountdownTimer endsAt={room.voting_ends_at} onExpired={onCloseVoting} />
+              <p className="font-display text-[10px] text-accent uppercase tracking-wider mt-2">
+                ⚡ Velocity-weighted — early votes count more
+              </p>
             </div>
           )}
 
@@ -485,15 +514,25 @@ function RoundPanel({
       {room.phase === "voting_closed" && (
         <div className="space-y-4">
           <div className="card-dark space-y-3">
-            <p className="section-label">Results</p>
+            <div className="flex items-center justify-between">
+              <p className="section-label">Results</p>
+              {globalWeightedTally && (
+                <span className="font-display text-[10px] text-accent uppercase tracking-wider border border-accent/30 px-2 py-0.5">
+                  Velocity-weighted
+                </span>
+              )}
+            </div>
             {room.mode === "whole_room" ? (
-              <VoteSummary tally={globalTally} />
+              <VoteSummary tally={globalTally} weightedTally={globalWeightedTally ?? undefined} />
             ) : (
               <div className="space-y-3">
                 {teams.map((t) => (
                   <div key={t.id}>
                     <p className="text-xs text-muted mb-1">{t.name}</p>
-                    <VoteSummary tally={teamVoteTally(t.id)} />
+                    <VoteSummary
+                      tally={teamVoteTally(t.id)}
+                      weightedTally={teamWeightedVoteTally(t.id) ?? undefined}
+                    />
                   </div>
                 ))}
               </div>
@@ -506,7 +545,7 @@ function RoundPanel({
           </div>
 
           <button onClick={onApplyNet} disabled={actionLoading} className="btn-primary w-full">
-            Apply Net Effect ({globalResult?.winner ?? "?"})
+            Apply Net Effect ({(globalWeightedResult ?? globalResult)?.winner ?? "?"})
           </button>
         </div>
       )}
@@ -552,27 +591,61 @@ function RoundPanel({
   );
 }
 
-function VoteSummary({ tally }: { tally: ReturnType<typeof tallyVotes> }) {
-  const max = Math.max(tally.A, tally.B, tally.C);
+function VoteSummary({
+  tally,
+  weightedTally,
+}: {
+  tally: ReturnType<typeof tallyVotes>;
+  weightedTally?: WeightedVoteTally;
+}) {
+  const useWeighted = !!weightedTally && weightedTally.total > 0;
+  const wScores = {
+    A: weightedTally?.weightedA ?? 0,
+    B: weightedTally?.weightedB ?? 0,
+    C: weightedTally?.weightedC ?? 0,
+  };
+  const rawMax = Math.max(tally.A, tally.B, tally.C);
+  const wMax = Math.max(wScores.A, wScores.B, wScores.C);
+
   return (
     <div className="space-y-1.5">
       {(["A", "B", "C"] as const).map((opt) => {
         const count = tally[opt];
-        const pct = tally.total > 0 ? (count / tally.total) * 100 : 0;
-        const isWinner = count === max && max > 0;
+        const wScore = wScores[opt];
+        const barPct = useWeighted
+          ? wMax > 0 ? (wScore / wMax) * 100 : 0
+          : tally.total > 0 ? (count / tally.total) * 100 : 0;
+        const isWinner = useWeighted
+          ? wScore === wMax && wMax > 0
+          : count === rawMax && rawMax > 0;
+
         return (
           <div key={opt} className="flex items-center gap-2">
-            <span className={`font-display text-xs w-4 ${isWinner ? "text-accent" : "text-muted"}`}>{opt}</span>
+            <span className={`font-display text-xs w-4 ${isWinner ? "text-accent" : "text-muted"}`}>
+              {opt}
+            </span>
             <div className="flex-1 stat-bar-track h-2">
               <div
-                className={`h-full ${isWinner ? "bg-accent" : "bg-white/30"}`}
-                style={{ width: `${pct}%` }}
+                className={`h-full transition-all duration-500 ${isWinner ? "bg-accent" : "bg-white/30"}`}
+                style={{ width: `${barPct}%` }}
               />
             </div>
-            <span className="font-display text-xs text-muted w-6 text-right">{count}</span>
+            <span className="font-display text-xs text-muted w-5 text-right tabular-nums">
+              {count}
+            </span>
+            {useWeighted && (
+              <span className="font-display text-xs text-muted w-10 text-right tabular-nums">
+                {wScore.toFixed(2)}
+              </span>
+            )}
           </div>
         );
       })}
+      {useWeighted && (
+        <p className="text-[10px] text-muted pt-0.5">
+          raw votes · weighted pts — bars show weighted power
+        </p>
+      )}
     </div>
   );
 }

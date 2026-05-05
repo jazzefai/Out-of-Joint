@@ -21,6 +21,7 @@ export default function PlayerRoomPage() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [votes, setVotes] = useState<Vote[]>([]);
   const [myVote, setMyVote] = useState<"A" | "B" | "C" | null>(null);
+  const [myVoteWeight, setMyVoteWeight] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [voting, setVoting] = useState(false);
@@ -105,6 +106,7 @@ export default function PlayerRoomPage() {
           const newRoom = payload.new as Room;
           if (newRoom.current_round !== room.current_round) {
             setMyVote(null);
+            setMyVoteWeight(null);
             setSelectedOption(null);
           }
         }
@@ -151,11 +153,22 @@ export default function PlayerRoomPage() {
     setJoining(false);
   }
 
-  // Cast vote
+  // Cast vote — capture weight at time of casting
   async function castVote(choice: "A" | "B" | "C") {
     if (!player || !room || myVote) return;
     setVoting(true);
     setSelectedOption(choice);
+
+    // Compute vote weight right now
+    let weight = 1.0;
+    if (room.voting_opened_at && room.voting_ends_at) {
+      const openedMs = new Date(room.voting_opened_at).getTime();
+      const endsMs = new Date(room.voting_ends_at).getTime();
+      const duration = (endsMs - openedMs) / 1000;
+      const elapsed = (Date.now() - openedMs) / 1000;
+      weight = Math.max(0.5, 1.0 - (Math.max(0, elapsed) / duration) * 0.5);
+    }
+
     const { error } = await supabase.from("votes").insert({
       room_id: room.id,
       team_id: room.mode === "teams" ? player.team_id : null,
@@ -163,7 +176,10 @@ export default function PlayerRoomPage() {
       round: room.current_round,
       choice,
     });
-    if (!error) setMyVote(choice);
+    if (!error) {
+      setMyVote(choice);
+      setMyVoteWeight(Math.round(weight * 100) / 100);
+    }
     setVoting(false);
   }
 
@@ -272,6 +288,7 @@ export default function PlayerRoomPage() {
               <VotingPanel
                 card={card}
                 myVote={myVote}
+                myVoteWeight={myVoteWeight}
                 selectedOption={selectedOption}
                 voting={voting}
                 room={room}
@@ -403,6 +420,7 @@ function TeamSelectPanel({
 function VotingPanel({
   card,
   myVote,
+  myVoteWeight,
   selectedOption,
   voting,
   room,
@@ -411,6 +429,7 @@ function VotingPanel({
 }: {
   card: ReturnType<typeof getCard>;
   myVote: "A" | "B" | "C" | null;
+  myVoteWeight: number | null;
   selectedOption: "A" | "B" | "C" | null;
   voting: boolean;
   room: Room;
@@ -430,10 +449,23 @@ function VotingPanel({
         <CountdownTimer endsAt={room.voting_ends_at} />
       )}
 
+      {/* Vote power indicator — only shown before voting */}
+      {!voted && room.voting_opened_at && room.voting_ends_at && (
+        <VoteWeightIndicator
+          votingOpenedAt={room.voting_opened_at}
+          votingEndsAt={room.voting_ends_at}
+        />
+      )}
+
       {voted ? (
         <div className="card-dark text-center py-6">
           <p className="font-display text-xl text-accent mb-1">Option {myVote}</p>
           <p className="text-sm text-muted">Vote locked in. Waiting for results…</p>
+          {myVoteWeight !== null && (
+            <p className="font-display text-xs text-muted mt-2 tracking-wider">
+              POWER <span className="text-paper">{myVoteWeight.toFixed(2)}×</span>
+            </p>
+          )}
           <div className="mt-3">
             <DeltaBadge delta={card.options[myVote!]} />
           </div>
@@ -470,6 +502,57 @@ function VotingPanel({
           compact
         />
       )}
+    </div>
+  );
+}
+
+function VoteWeightIndicator({
+  votingOpenedAt,
+  votingEndsAt,
+}: {
+  votingOpenedAt: string;
+  votingEndsAt: string;
+}) {
+  const [weight, setWeight] = useState(1.0);
+
+  useEffect(() => {
+    const openedMs = new Date(votingOpenedAt).getTime();
+    const endsMs = new Date(votingEndsAt).getTime();
+    const duration = (endsMs - openedMs) / 1000;
+
+    function update() {
+      const elapsed = (Date.now() - openedMs) / 1000;
+      const w = Math.max(0.5, 1.0 - (Math.max(0, elapsed) / duration) * 0.5);
+      setWeight(w);
+    }
+
+    update();
+    const id = setInterval(update, 200);
+    return () => clearInterval(id);
+  }, [votingOpenedAt, votingEndsAt]);
+
+  // 100% bar at 1.0×, 0% bar at 0.5×
+  const pct = ((weight - 0.5) / 0.5) * 100;
+  const isHigh = pct > 60;
+  const isMid = pct > 30;
+  const colorText = isHigh ? "text-green-400" : isMid ? "text-yellow-400" : "text-amber-500";
+  const colorBar = isHigh ? "bg-green-500" : isMid ? "bg-yellow-500" : "bg-amber-500";
+
+  return (
+    <div className="card-dark space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="section-label">Vote power</span>
+        <span className={`font-display text-lg tabular-nums ${colorText}`}>
+          {weight.toFixed(2)}×
+        </span>
+      </div>
+      <div className="stat-bar-track h-2">
+        <div
+          className={`h-full transition-all duration-200 ${colorBar}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-xs text-muted">Vote early — power decreases as time runs out</p>
     </div>
   );
 }
